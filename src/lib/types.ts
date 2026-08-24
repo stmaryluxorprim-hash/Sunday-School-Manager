@@ -1,11 +1,14 @@
 export type AppRole = 'app_owner' | 'church_manager' | 'service_manager' | 'servant';
 
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Church {
   id: string;
   name: string;
   address: string | null;
   phone: string | null;
   logo_url: string | null;
+  icon: string;
   is_active: boolean;
   created_at: string;
 }
@@ -13,11 +16,13 @@ export interface Church {
 export interface Profile {
   id: string;
   church_id: string | null;
+  service_id: string | null;
   role: AppRole;
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  approval_status: ApprovalStatus;
   created_at: string;
 }
 
@@ -26,9 +31,16 @@ export interface Service {
   church_id: string;
   name: string;
   description: string | null;
+  icon: string;
   is_active: boolean;
   created_at: string;
 }
+
+export const APPROVAL_LABELS: Record<ApprovalStatus, string> = {
+  pending: 'في انتظار الموافقة',
+  approved: 'مقبول',
+  rejected: 'مرفوض',
+};
 
 export interface Child {
   id: string;
