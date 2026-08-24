@@ -4,10 +4,10 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { AppRole, ApprovalStatus, Profile } from '@/lib/types';
-import { ROLE_LABELS } from '@/lib/types';
+import { ROLE_LABELS, ROLE_LEVEL } from '@/lib/types';
 import ImageCropUpload from '@/components/ImageCropUpload';
 import {
-  User, Church, Power, PowerOff, Check, X, UserCheck, Pencil, Loader2, Camera,
+  User, Church, Power, PowerOff, Check, X, UserCheck, Pencil, Loader2, Camera, Trash2,
 } from 'lucide-react';
 
 export type UserRow = Profile & {
@@ -45,22 +45,44 @@ export default function UsersManager({ users, churches, services, currentProfile
   const isChurchManager = currentProfile.role === 'church_manager';
   const isServiceManager = currentProfile.role === 'service_manager';
 
-  // ---- permissions ----
-  // owner: edit any user's church + service + role
-  // church_manager: edit service + role of users in his church (not church)
+  // ---- permissions & hierarchy ----
+  // Nobody may see or act on a user of a HIGHER role level than himself,
+  // and the app owner is only visible to himself. (RLS enforces this too —
+  // this is defense-in-depth on the client.)
+  const myLevel = ROLE_LEVEL[currentProfile.role];
+  const isBelowMe = (u: UserRow) =>
+    u.id !== currentProfile.id && ROLE_LEVEL[u.role] < myLevel;
+  const visibleUsers = users.filter((u) => {
+    if (u.id === currentProfile.id) return false;
+    if (!isOwner && u.role === 'app_owner') return false;
+    if (!isOwner && ROLE_LEVEL[u.role] > myLevel) return false;
+    return true;
+  });
+
+  // owner: edit any user's church + service + role (never another app_owner)
+  // church_manager: edit service + role of users BELOW him in his church
   // service_manager: approve/reject/activate servants of his service only
   const canEditChurch = isOwner;
   const canEditService = isOwner || isChurchManager;
   const canAssignRoles = isOwner || isChurchManager;
   const canEditUser = (u: UserRow) =>
-    u.id !== currentProfile.id && (isOwner || isChurchManager);
+    u.id !== currentProfile.id &&
+    u.role !== 'app_owner' &&
+    (isOwner || (isChurchManager && isBelowMe(u)));
+
+  // delete: owner deletes anyone (except owners); church_manager deletes
+  // service_manager/servant; service_manager deletes servants of his service.
+  const canDeleteUser = (u: UserRow) =>
+    u.id !== currentProfile.id &&
+    u.role !== 'app_owner' &&
+    (isOwner || isBelowMe(u));
 
   const assignableRoles: AppRole[] = isOwner
     ? ['app_owner', 'church_manager', 'service_manager', 'servant']
-    : ['church_manager', 'service_manager', 'servant'];
+    : ['service_manager', 'servant'];
 
-  const pending = users.filter((u) => u.approval_status === 'pending');
-  const others = users.filter((u) => u.approval_status !== 'pending');
+  const pending = visibleUsers.filter((u) => u.approval_status === 'pending');
+  const others = visibleUsers.filter((u) => u.approval_status !== 'pending');
 
   // ---- group approved/rejected users by church → service ----
   const groups = useMemo(() => {
@@ -147,6 +169,24 @@ export default function UsersManager({ users, churches, services, currentProfile
     router.refresh();
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function deleteUser(u: UserRow) {
+    const ok = window.confirm(
+      `هل أنت متأكد من حذف المستخدم "${u.full_name || ''}" نهائيًا؟`
+    );
+    if (!ok) return;
+    setDeletingId(u.id);
+    const supabase = createClient();
+    const { error } = await supabase.from('profiles').delete().eq('id', u.id);
+    setDeletingId(null);
+    if (error) {
+      window.alert('تعذر حذف المستخدم: ' + error.message);
+      return;
+    }
+    router.refresh();
+  }
+
   function renderUserCard(u: UserRow) {
     return (
       <li
@@ -202,6 +242,7 @@ export default function UsersManager({ users, churches, services, currentProfile
           )}
 
           {u.id !== currentProfile.id &&
+            (isOwner || isBelowMe(u)) &&
             (!isServiceManager || u.role === 'servant') && (
               <button
                 onClick={() => toggleActive(u)}
@@ -215,6 +256,21 @@ export default function UsersManager({ users, churches, services, currentProfile
                 {u.is_active ? 'إيقاف' : 'تفعيل'}
               </button>
             )}
+
+          {canDeleteUser(u) && (
+            <button
+              onClick={() => deleteUser(u)}
+              disabled={deletingId === u.id}
+              className="inline-flex items-center gap-1 text-xs font-semibold rounded-xl px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] transition disabled:opacity-50 mr-auto"
+            >
+              {deletingId === u.id ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="w-3.5 h-3.5" />
+              )}
+              حذف
+            </button>
+          )}
         </div>
       </li>
     );
@@ -289,7 +345,7 @@ export default function UsersManager({ users, churches, services, currentProfile
         </section>
       ))}
 
-      {!users.length && (
+      {!visibleUsers.length && (
         <p className="text-center text-gray-400 text-sm py-10 bg-white rounded-2xl border border-gray-100">
           لا يوجد مستخدمون
         </p>
