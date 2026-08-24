@@ -13,13 +13,35 @@ export default async function PendingPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // NOTE: profiles has TWO relationships to services (service_id FK and the
+  // service_members join table), so the embed MUST be disambiguated with
+  // !service_id — otherwise PostgREST errors (PGRST201) and profile is null.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*, churches(name), services(name)')
+    .select('*, churches!church_id(name), services!service_id(name)')
     .eq('id', user.id)
     .single();
 
-  if (!profile) redirect('/login');
+  // IMPORTANT: never redirect an authenticated user to /login from here —
+  // middleware bounces logged-in users from /login back to /dashboard,
+  // which creates an infinite redirect loop. Render a fallback instead.
+  if (!profile) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-900 to-blue-600">
+        <section className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-8 h-8 text-amber-500" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">حسابك قيد المعالجة</h1>
+          <p className="text-gray-500 text-sm mt-2 mb-6">
+            لم نتمكن من تحميل بيانات حسابك. جرب تسجيل الخروج والدخول مرة أخرى، أو تواصل مع مدير الكنيسة.
+          </p>
+          <SignOutButton />
+        </section>
+      </main>
+    );
+  }
+
   const p = profile as Profile & {
     churches: { name: string } | null;
     services: { name: string } | null;

@@ -9,10 +9,16 @@ export default async function UsersPage() {
   const profile = await requireRole('church_manager');
   const supabase = await createClient();
 
-  const { data: users } = await supabase
+  // NOTE: profiles → services has two possible relationships (service_id FK
+  // and the service_members join table). The embed must be disambiguated
+  // with !service_id, otherwise PostgREST returns PGRST201 and users is null,
+  // hiding the whole list including the pending-approval queue.
+  const { data: users, error } = await supabase
     .from('profiles')
-    .select('*, services(name)')
+    .select('*, services!service_id(name)')
     .order('full_name');
+
+  if (error) console.error('users query failed:', error.message);
 
   return (
     <div className="space-y-4 mt-4">
