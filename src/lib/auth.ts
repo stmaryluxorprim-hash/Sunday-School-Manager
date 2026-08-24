@@ -33,8 +33,8 @@ export async function requireRole(minRole: AppRole = 'servant'): Promise<Profile
 }
 
 export type ProfileWithContext = Profile & {
-  churches: { name: string; icon: string } | null;
-  services: { name: string; icon: string } | null;
+  churches: { name: string; icon: string; picture_url: string | null } | null;
+  services: { name: string; icon: string; picture_url: string | null } | null;
 };
 
 /** Profile + church & service names (embeds disambiguated by FK). */
@@ -47,7 +47,7 @@ export async function getProfileWithContext(): Promise<ProfileWithContext | null
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*, churches!church_id(name, icon), services!service_id(name, icon)')
+    .select('*, churches!church_id(name, icon, picture_url), services!service_id(name, icon, picture_url)')
     .eq('id', user.id)
     .single();
 

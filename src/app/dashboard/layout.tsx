@@ -17,6 +17,7 @@ export default async function DashboardLayout({
         profile={profile}
         churchName={profile.churches?.name ?? null}
         churchIcon={profile.churches?.icon ?? null}
+        churchPicture={profile.churches?.picture_url ?? null}
         serviceName={profile.services?.name ?? null}
       />
       <main className="max-w-lg mx-auto px-4 pb-28 pt-2">{children}</main>

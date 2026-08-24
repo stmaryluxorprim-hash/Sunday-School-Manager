@@ -8,6 +8,7 @@ export interface Church {
   address: string | null;
   phone: string | null;
   logo_url: string | null;
+  picture_url: string | null;
   icon: string;
   is_active: boolean;
   created_at: string;
@@ -32,6 +33,7 @@ export interface Service {
   name: string;
   description: string | null;
   icon: string;
+  picture_url: string | null;
   is_active: boolean;
   created_at: string;
 }
