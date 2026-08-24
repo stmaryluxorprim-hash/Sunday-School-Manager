@@ -23,9 +23,13 @@ export async function requireRole(minRole: AppRole = 'servant'): Promise<Profile
     .single();
 
   if (!profile) redirect('/login');
-  if (!hasMinRole(profile.role, minRole)) redirect('/dashboard');
 
-  return profile as Profile;
+  const p = profile as Profile;
+  // Block unapproved accounts (app_owner is always allowed)
+  if (p.role !== 'app_owner' && p.approval_status !== 'approved') redirect('/pending');
+  if (!hasMinRole(p.role, minRole)) redirect('/dashboard');
+
+  return p;
 }
 
 export async function getProfile(): Promise<Profile | null> {

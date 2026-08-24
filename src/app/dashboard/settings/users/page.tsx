@@ -11,16 +11,19 @@ export default async function UsersPage() {
 
   const { data: users } = await supabase
     .from('profiles')
-    .select('*')
+    .select('*, services(name)')
     .order('full_name');
 
   return (
     <div className="space-y-4 mt-4">
       <h2 className="text-2xl font-bold text-gray-800">المستخدمون</h2>
       <p className="text-sm text-gray-500">
-        إدارة أدوار الخدام في كنيستك. المستخدم الجديد يظهر هنا بعد إنشاء حسابه.
+        إدارة أدوار الخدام في كنيستك. طلبات الانضمام الجديدة بتظهر هنا لموافقتك.
       </p>
-      <UsersManager users={(users as Profile[]) ?? []} currentProfile={profile} />
+      <UsersManager
+        users={(users as (Profile & { services?: { name: string } | null })[]) ?? []}
+        currentProfile={profile}
+      />
     </div>
   );
 }

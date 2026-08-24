@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Church } from '@/lib/types';
-import { Plus, Church as ChurchIcon, Power, PowerOff, Loader2 } from 'lucide-react';
+import { Plus, Power, PowerOff, Loader2 } from 'lucide-react';
+import { AppIcon, CHURCH_ICONS } from '@/lib/icons';
+import SignupQr from '@/components/SignupQr';
 
 const inputCls =
   'w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition';
@@ -14,6 +16,7 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [icon, setIcon] = useState('church');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,12 +29,14 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
       name: name.trim(),
       address: address.trim() || null,
       phone: phone.trim() || null,
+      icon,
     });
     if (error) setError(error.message);
     else {
       setName('');
       setAddress('');
       setPhone('');
+      setIcon('church');
       router.refresh();
     }
     setLoading(false);
@@ -75,6 +80,28 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
             className={inputCls}
           />
         </div>
+
+        {/* Icon picker */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 mb-2">أيقونة الكنيسة</p>
+          <div className="flex flex-wrap gap-2">
+            {CHURCH_ICONS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setIcon(key)}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition active:scale-[0.95] ${
+                  icon === key
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                <AppIcon name={key} className="w-5 h-5" />
+              </button>
+            ))}
+          </div>
+        </div>
+
         {error && <p className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</p>}
         <button
           disabled={loading}
@@ -94,7 +121,7 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
             }`}
           >
             <span className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-              <ChurchIcon className="w-5 h-5 text-indigo-600" />
+              <AppIcon name={c.icon} className="w-5 h-5 text-indigo-600" fallback="church" />
             </span>
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-bold text-gray-800 truncate">{c.name}</h4>
@@ -103,6 +130,9 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
               </p>
               <p className="text-[10px] text-gray-300 mt-0.5 truncate" dir="ltr">ID: {c.id}</p>
             </div>
+            {c.is_active && (
+              <SignupQr churchId={c.id} title={c.name} subtitle="رابط تسجيل الخدام للكنيسة" />
+            )}
             <button
               onClick={() => toggleActive(c)}
               className={`inline-flex items-center gap-1 text-xs font-semibold rounded-xl px-3 py-2 transition active:scale-[0.98] shrink-0 ${
