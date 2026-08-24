@@ -4,21 +4,26 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Service } from '@/lib/types';
-import { Plus, Power, PowerOff, Loader2, Pencil, X, Check, Camera } from 'lucide-react';
+import { Plus, Power, PowerOff, Loader2, Pencil, X, Check, Camera, Trash2 } from 'lucide-react';
 import { AppIcon, SERVICE_ICONS } from '@/lib/icons';
 import SignupQr from '@/components/SignupQr';
 import ImageCropUpload from '@/components/ImageCropUpload';
 
+export type ServiceRow = Service & { churches?: { name: string } | null };
+
 interface Props {
-  churchId: string;
-  services: Service[];
+  /** null = owner viewing all churches (add form hidden) */
+  churchId: string | null;
+  services: ServiceRow[];
   canManage: boolean;
+  /** show church name under each service (owner all-churches view) */
+  showChurchName?: boolean;
 }
 
 const inputCls =
   'w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition';
 
-export default function ServicesManager({ churchId, services, canManage }: Props) {
+export default function ServicesManager({ churchId, services, canManage, showChurchName }: Props) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -28,6 +33,7 @@ export default function ServicesManager({ churchId, services, canManage }: Props
 
   async function addService(e: React.FormEvent) {
     e.preventDefault();
+    if (!churchId) return;
     setLoading(true);
     setError(null);
     const supabase = createClient();
@@ -96,9 +102,27 @@ export default function ServicesManager({ churchId, services, canManage }: Props
     router.refresh();
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function deleteService(s: ServiceRow) {
+    const ok = window.confirm(
+      `هل أنت متأكد من حذف خدمة "${s.name}" نهائيًا؟ سيتم حذف كل البيانات المرتبطة بها.`
+    );
+    if (!ok) return;
+    setDeletingId(s.id);
+    const supabase = createClient();
+    const { error } = await supabase.from('services').delete().eq('id', s.id);
+    setDeletingId(null);
+    if (error) {
+      window.alert('تعذر حذف الخدمة: ' + error.message);
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <div className="space-y-3 mt-3">
-      {canManage && (
+      {canManage && churchId && (
         <form onSubmit={addService}
           className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
           <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
@@ -171,11 +195,15 @@ export default function ServicesManager({ churchId, services, canManage }: Props
             )}
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-bold text-gray-800 truncate">{s.name}</h4>
-              {s.description && <p className="text-xs text-gray-400 truncate">{s.description}</p>}
+              {showChurchName && s.churches?.name ? (
+                <p className="text-xs text-amber-600 truncate">{s.churches.name}</p>
+              ) : (
+                s.description && <p className="text-xs text-gray-400 truncate">{s.description}</p>
+              )}
             </div>
             {canManage && s.is_active && (
               <SignupQr
-                churchId={churchId}
+                churchId={s.church_id}
                 serviceId={s.id}
                 title={s.name}
                 subtitle="رابط تسجيل الخدام للخدمة دي"
@@ -201,6 +229,20 @@ export default function ServicesManager({ churchId, services, canManage }: Props
               >
                 {s.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                 {s.is_active ? 'إيقاف' : 'تفعيل'}
+              </button>
+            )}
+            {canManage && (
+              <button
+                onClick={() => deleteService(s)}
+                disabled={deletingId === s.id}
+                className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 active:scale-[0.95] transition shrink-0 disabled:opacity-50"
+                aria-label="حذف"
+              >
+                {deletingId === s.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
               </button>
             )}
           </li>
