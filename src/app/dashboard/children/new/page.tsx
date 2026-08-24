@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import ChildForm from '@/components/ChildForm';
 import type { Service } from '@/lib/types';
+import { UserPlus } from 'lucide-react';
 
 export default async function NewChildPage() {
   const profile = await requireRole('servant');
@@ -17,8 +18,13 @@ export default async function NewChildPage() {
     .order('name');
 
   return (
-    <div className="space-y-4 mt-4 max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800">إضافة مخدوم جديد</h2>
+    <div className="space-y-3 mt-3">
+      <header className="flex items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+          <UserPlus className="w-5 h-5 text-blue-600" />
+        </span>
+        <h2 className="text-xl font-bold text-gray-800">إضافة مخدوم جديد</h2>
+      </header>
       <ChildForm churchId={profile.church_id} services={(services as Service[]) ?? []} />
     </div>
   );
