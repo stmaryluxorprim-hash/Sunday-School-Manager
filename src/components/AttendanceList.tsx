@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Child } from '@/lib/types';
+import { Search, Check, User } from 'lucide-react';
 
 interface Props {
   churchId: string;
@@ -22,6 +23,10 @@ export default function AttendanceList({ churchId, childList, attendedIds }: Pro
       (c) => c.name.toLowerCase().includes(q) || c.child_code.toLowerCase().includes(q)
     );
   }, [childList, search]);
+
+  function vibrate() {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40);
+  }
 
   async function toggle(child: Child) {
     if (busy.has(child.id)) return;
@@ -50,6 +55,7 @@ export default function AttendanceList({ churchId, childList, attendedIds }: Pro
         service_id: child.service_id,
       });
       if (!error || (error as { code?: string }).code === '23505') {
+        vibrate();
         setAttended((a) => new Set(a).add(child.id));
       }
     }
@@ -62,16 +68,19 @@ export default function AttendanceList({ churchId, childList, attendedIds }: Pro
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <input
-          id="attendance-search"
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="بحث سريع..."
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-        />
-        <span className="text-sm font-bold text-green-700 bg-green-50 rounded-lg px-3 py-2 shrink-0">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            id="attendance-search"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث سريع..."
+            className="w-full rounded-xl border border-gray-200 pr-10 pl-4 py-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+          />
+        </div>
+        <span className="text-sm font-bold text-green-700 bg-green-50 rounded-xl px-3 py-3 shrink-0">
           {attended.size} / {childList.length}
         </span>
       </div>
@@ -84,27 +93,29 @@ export default function AttendanceList({ churchId, childList, attendedIds }: Pro
               <button
                 onClick={() => toggle(child)}
                 disabled={busy.has(child.id)}
-                className={`w-full flex items-center gap-3 rounded-xl border p-3 transition text-right ${
+                className={`w-full flex items-center gap-3 rounded-2xl border p-3 transition text-right active:scale-[0.98] ${
                   isAttended
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-white border-gray-100 hover:border-blue-200'
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-white border-gray-100 shadow-sm'
                 } disabled:opacity-60`}
               >
                 <span
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 ${
-                    isAttended ? 'bg-green-600 text-white' : 'bg-gray-100'
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition ${
+                    isAttended ? 'bg-green-600' : 'bg-gray-100'
                   }`}
                 >
-                  {isAttended ? '✓' : ''}
+                  {isAttended && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                 </span>
                 {child.picture_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={child.picture_url} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (
-                  <span className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">👧</span>
+                  <span className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                    <User className="w-5 h-5 text-blue-300" />
+                  </span>
                 )}
                 <span className="flex-1 min-w-0">
-                  <span className="block font-semibold text-gray-800 truncate">{child.name}</span>
+                  <span className="block text-sm font-semibold text-gray-800 truncate">{child.name}</span>
                   <span className="block text-xs text-gray-400" dir="ltr">{child.child_code}</span>
                 </span>
               </button>
@@ -112,7 +123,7 @@ export default function AttendanceList({ churchId, childList, attendedIds }: Pro
           );
         })}
         {!filtered.length && (
-          <li className="text-center text-gray-400 py-8">لا توجد نتائج</li>
+          <li className="text-center text-gray-400 text-sm py-10">لا توجد نتائج</li>
         )}
       </ul>
     </>
