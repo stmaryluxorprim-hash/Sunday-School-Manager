@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { AppRole, Profile } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
+import { User, Church, Power, PowerOff } from 'lucide-react';
 
 interface Props {
   users: Profile[];
@@ -39,32 +40,37 @@ export default function UsersManager({ users, currentProfile }: Props) {
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2 mt-3">
       {users.map((u) => (
         <li
           key={u.id}
-          className={`bg-white rounded-xl border border-gray-100 p-4 flex flex-wrap items-center gap-3 ${
+          className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 ${
             !u.is_active ? 'opacity-60' : ''
           }`}
         >
-          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-lg shrink-0">
-            👤
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-gray-800 truncate">{u.full_name || '(بدون اسم)'}</h4>
-            <p className="text-xs text-gray-400">
-              {ROLE_LABELS[u.role]}
-              {!u.church_id && ' · غير مرتبط بكنيسة'}
-            </p>
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+              <User className="w-5 h-5 text-blue-600" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-bold text-gray-800 truncate">
+                {u.full_name || '(بدون اسم)'}
+              </h4>
+              <p className="text-xs text-gray-400">
+                {ROLE_LABELS[u.role]}
+                {!u.church_id && ' · غير مرتبط بكنيسة'}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 mt-3">
             {!u.church_id && currentProfile.church_id && (
               <button
                 onClick={() => attachToMyChurch(u)}
-                className="text-xs bg-blue-50 text-blue-700 rounded-lg px-3 py-1.5 font-semibold hover:bg-blue-100 transition"
+                className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 rounded-xl px-3 py-2 font-semibold hover:bg-blue-100 active:scale-[0.98] transition"
               >
-                ⛪ ربط بكنيستي
+                <Church className="w-3.5 h-3.5" />
+                ربط بكنيستي
               </button>
             )}
 
@@ -73,7 +79,7 @@ export default function UsersManager({ users, currentProfile }: Props) {
                 <select
                   value={u.role}
                   onChange={(e) => updateRole(u, e.target.value as AppRole)}
-                  className="text-xs rounded-lg border border-gray-300 px-2 py-1.5 bg-white"
+                  className="text-xs rounded-xl border border-gray-200 px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   {assignableRoles.map((r) => (
                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -81,12 +87,13 @@ export default function UsersManager({ users, currentProfile }: Props) {
                 </select>
                 <button
                   onClick={() => toggleActive(u)}
-                  className={`text-xs font-semibold rounded-lg px-3 py-1.5 transition ${
+                  className={`inline-flex items-center gap-1 text-xs font-semibold rounded-xl px-3 py-2 transition active:scale-[0.98] ${
                     u.is_active
                       ? 'bg-red-50 text-red-600 hover:bg-red-100'
                       : 'bg-green-50 text-green-600 hover:bg-green-100'
                   }`}
                 >
+                  {u.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                   {u.is_active ? 'إيقاف' : 'تفعيل'}
                 </button>
               </>
@@ -95,7 +102,7 @@ export default function UsersManager({ users, currentProfile }: Props) {
         </li>
       ))}
       {!users.length && (
-        <li className="text-center text-gray-400 py-8 bg-white rounded-xl border border-gray-100">
+        <li className="text-center text-gray-400 text-sm py-10 bg-white rounded-2xl border border-gray-100">
           لا يوجد مستخدمون
         </li>
       )}
