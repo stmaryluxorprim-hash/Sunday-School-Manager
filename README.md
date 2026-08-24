@@ -13,9 +13,9 @@ Multi-tenant PWA لإدارة خدمات الكنائس والمخدومين و�
 ## الأدوار (RBAC)
 | الدور | الصلاحيات |
 |---|---|
-| `app_owner` | إدارة كل الكنائس والمستخدمين على المنصة |
-| `church_manager` | إدارة كنيسته: الخدمات، الخدام، المخدومين |
-| `service_manager` | إدارة خدمته والمخدومين والحضور |
+| `app_owner` | إدارة الكنائس + الخدمات + المستخدمين على مستوى المنصة |
+| `church_manager` | إدارة الخدمات + المستخدمين داخل كنيسته فقط |
+| `service_manager` | إدارة المستخدمين داخل خدمته فقط (قبول/رفض/إيقاف الخدام) + المخدومين والحضور |
 | `servant` | تسجيل الحضور والنقاط وإدارة بيانات المخدومين |
 
 ## بيانات المخدوم (Child)
@@ -37,8 +37,8 @@ Multi-tenant PWA لإدارة خدمات الكنائس والمخدومين و�
 | `/dashboard/children/[id]` | ملف المخدوم + حضور + نقاط | servant |
 | `/dashboard/children/[id]/edit` | تعديل مخدوم | servant |
 | `/dashboard/attendance` | تسجيل حضور جماعي سريع | servant |
-| `/dashboard/services` | إدارة الخدمات | service_manager |
-| `/dashboard/users` | إدارة المستخدمين والأدوار | church_manager |
+| `/dashboard/settings/services` | إدارة الخدمات | church_manager |
+| `/dashboard/settings/users` | إدارة المستخدمين والأدوار (مدير الخدمة: خدمته فقط) | service_manager |
 | `/dashboard/churches` | إدارة الكنائس (tenants) | app_owner |
 
 ## 🚀 خطوات التشغيل

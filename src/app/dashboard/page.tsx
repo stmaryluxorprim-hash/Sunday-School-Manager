@@ -10,7 +10,10 @@ import {
   CalendarCheck,
   Hourglass,
   ChevronLeft,
+  User,
+  ShieldCheck,
 } from 'lucide-react';
+import { ROLE_LABELS } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,17 +47,39 @@ export default async function DashboardPage() {
     churchFilter ? servicesQ.eq('church_id', churchFilter) : servicesQ,
   ]);
 
+  const canManageServices = profile.role === 'app_owner' || profile.role === 'church_manager';
   const totalChildren = childrenRes.count ?? 0;
   const attendedToday = attendanceTodayRes.count ?? 0;
   const pct = totalChildren > 0 ? Math.round((attendedToday / totalChildren) * 100) : 0;
 
   return (
     <div className="space-y-4 mt-2">
-      {/* Greeting */}
-      <header className="py-2">
-        <h2 className="text-xl font-bold text-gray-800">أهلاً، {profile.full_name.split(' ')[0]} 👋</h2>
-        <p className="text-sm text-gray-500" dir="ltr">{today}</p>
-      </header>
+      {/* User profile card */}
+      <section
+        id="profile-card"
+        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4"
+      >
+        {profile.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.avatar_url}
+            alt={profile.full_name}
+            className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-gray-100"
+          />
+        ) : (
+          <span className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center shrink-0">
+            <User className="w-7 h-7 text-white" />
+          </span>
+        )}
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-gray-800 truncate">أهلاً، {profile.full_name} 👋</h2>
+          <p className="text-xs text-blue-600 font-semibold flex items-center gap-1 mt-0.5">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            {ROLE_LABELS[profile.role]}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5" dir="ltr">{today}</p>
+        </div>
+      </section>
 
       {/* Today's attendance hero card */}
       <section
@@ -95,18 +120,30 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
-        <Link
-          href="/dashboard/settings/services"
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 active:scale-[0.98] transition"
-        >
-          <span className="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-            <ClipboardList className="w-5 h-5 text-violet-600" />
-          </span>
-          <div>
-            <p className="text-xl font-bold text-gray-800">{servicesRes.count ?? 0}</p>
-            <p className="text-xs text-gray-400">الخدمات</p>
+        {canManageServices ? (
+          <Link
+            href="/dashboard/settings/services"
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 active:scale-[0.98] transition"
+          >
+            <span className="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <ClipboardList className="w-5 h-5 text-violet-600" />
+            </span>
+            <div>
+              <p className="text-xl font-bold text-gray-800">{servicesRes.count ?? 0}</p>
+              <p className="text-xs text-gray-400">الخدمات</p>
+            </div>
+          </Link>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+            <span className="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <ClipboardList className="w-5 h-5 text-violet-600" />
+            </span>
+            <div>
+              <p className="text-xl font-bold text-gray-800">{servicesRes.count ?? 0}</p>
+              <p className="text-xs text-gray-400">الخدمات</p>
+            </div>
           </div>
-        </Link>
+        )}
       </section>
 
       {/* Quick actions */}
