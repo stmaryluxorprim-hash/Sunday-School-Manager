@@ -1,27 +1,60 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { AppRole, ApprovalStatus, Profile } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
-import { User, Church, Power, PowerOff, Check, X, UserCheck } from 'lucide-react';
+import ImageCropUpload from '@/components/ImageCropUpload';
+import {
+  User, Church, Power, PowerOff, Check, X, UserCheck, Pencil, Loader2, Camera,
+} from 'lucide-react';
 
-type UserRow = Profile & { services?: { name: string } | null };
+export type UserRow = Profile & {
+  churches?: { name: string } | null;
+  services?: { name: string } | null;
+};
+
+interface Option { id: string; name: string }
+interface ServiceOption extends Option { church_id: string }
 
 interface Props {
   users: UserRow[];
+  churches: Option[];
+  services: ServiceOption[];
   currentProfile: Profile;
 }
 
-export default function UsersManager({ users, currentProfile }: Props) {
+const inputCls =
+  'w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition';
+
+function Avatar({ url, className = 'w-10 h-10', iconCls = 'w-5 h-5' }: { url: string | null; className?: string; iconCls?: string }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="" className={`${className} rounded-xl object-cover shrink-0 border border-gray-100`} />
+  ) : (
+    <span className={`${className} rounded-xl bg-blue-50 flex items-center justify-center shrink-0`}>
+      <User className={`${iconCls} text-blue-600`} />
+    </span>
+  );
+}
+
+export default function UsersManager({ users, churches, services, currentProfile }: Props) {
   const router = useRouter();
   const isOwner = currentProfile.role === 'app_owner';
   const isChurchManager = currentProfile.role === 'church_manager';
   const isServiceManager = currentProfile.role === 'service_manager';
 
-  // Role assignment: owner assigns anything; church_manager up to church_manager;
-  // service_manager cannot change roles at all.
+  // ---- permissions ----
+  // owner: edit any user's church + service + role
+  // church_manager: edit service + role of users in his church (not church)
+  // service_manager: approve/reject/activate servants of his service only
+  const canEditChurch = isOwner;
+  const canEditService = isOwner || isChurchManager;
   const canAssignRoles = isOwner || isChurchManager;
+  const canEditUser = (u: UserRow) =>
+    u.id !== currentProfile.id && (isOwner || isChurchManager);
+
   const assignableRoles: AppRole[] = isOwner
     ? ['app_owner', 'church_manager', 'service_manager', 'servant']
     : ['church_manager', 'service_manager', 'servant'];
@@ -29,9 +62,69 @@ export default function UsersManager({ users, currentProfile }: Props) {
   const pending = users.filter((u) => u.approval_status === 'pending');
   const others = users.filter((u) => u.approval_status !== 'pending');
 
-  async function updateRole(user: Profile, role: AppRole) {
+  // ---- group approved/rejected users by church → service ----
+  const groups = useMemo(() => {
+    const map = new Map<string, { church: string; sections: Map<string, UserRow[]> }>();
+    for (const u of others) {
+      const churchKey = u.churches?.name ?? 'بدون كنيسة';
+      const serviceKey = u.services?.name ?? 'بدون خدمة';
+      if (!map.has(churchKey)) map.set(churchKey, { church: churchKey, sections: new Map() });
+      const g = map.get(churchKey)!;
+      if (!g.sections.has(serviceKey)) g.sections.set(serviceKey, []);
+      g.sections.get(serviceKey)!.push(u);
+    }
+    return Array.from(map.values());
+  }, [others]);
+
+  // ---- edit modal state ----
+  const [editing, setEditing] = useState<UserRow | null>(null);
+  const [editChurch, setEditChurch] = useState<string>('');
+  const [editService, setEditService] = useState<string>('');
+  const [editRole, setEditRole] = useState<AppRole>('servant');
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function openEdit(u: UserRow) {
+    setEditing(u);
+    setEditChurch(u.church_id ?? '');
+    setEditService(u.service_id ?? '');
+    setEditRole(u.role);
+    setEditError(null);
+  }
+
+  const editServiceOptions = services.filter(
+    (s) => s.church_id === (canEditChurch ? editChurch : currentProfile.church_id ?? '')
+  );
+
+  async function saveEdit() {
+    if (!editing) return;
+    setSaving(true);
+    setEditError(null);
     const supabase = createClient();
-    await supabase.from('profiles').update({ role }).eq('id', user.id);
+
+    const patch: Record<string, unknown> = {};
+    if (canEditChurch) {
+      patch.church_id = editChurch || null;
+      // church changed → keep service only if it belongs to the new church
+      const svcOk = services.some((s) => s.id === editService && s.church_id === editChurch);
+      patch.service_id = svcOk ? editService : null;
+    } else if (canEditService) {
+      patch.service_id = editService || null;
+    }
+    if (canAssignRoles) patch.role = editRole;
+
+    const { error } = await supabase.from('profiles').update(patch).eq('id', editing.id);
+    if (error) setEditError(error.message);
+    else {
+      setEditing(null);
+      router.refresh();
+    }
+    setSaving(false);
+  }
+
+  async function saveAvatar(userId: string, url: string) {
+    const supabase = createClient();
+    await supabase.from('profiles').update({ avatar_url: url }).eq('id', userId);
     router.refresh();
   }
 
@@ -54,6 +147,79 @@ export default function UsersManager({ users, currentProfile }: Props) {
     router.refresh();
   }
 
+  function renderUserCard(u: UserRow) {
+    return (
+      <li
+        key={u.id}
+        className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 ${
+          !u.is_active || u.approval_status === 'rejected' ? 'opacity-60' : ''
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Avatar url={u.avatar_url} />
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-bold text-gray-800 truncate">
+              {u.full_name || '(بدون اسم)'}
+            </h4>
+            <p className="text-xs text-gray-400 truncate">
+              {ROLE_LABELS[u.role]}
+              {u.services?.name && ` · ${u.services.name}`}
+              {!u.church_id && ' · غير مرتبط بكنيسة'}
+              {u.approval_status === 'rejected' && ' · مرفوض'}
+            </p>
+          </div>
+
+          {canEditUser(u) && (
+            <button
+              onClick={() => openEdit(u)}
+              className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 active:scale-[0.95] transition shrink-0"
+              aria-label="تعديل"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {u.approval_status === 'rejected' && u.id !== currentProfile.id && (
+            <button
+              onClick={() => setApproval(u, 'approved')}
+              className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 rounded-xl px-3 py-2 font-semibold hover:bg-green-100 active:scale-[0.98] transition"
+            >
+              <Check className="w-3.5 h-3.5" />
+              قبول
+            </button>
+          )}
+
+          {!u.church_id && currentProfile.church_id && isChurchManager && (
+            <button
+              onClick={() => attachToMyChurch(u)}
+              className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 rounded-xl px-3 py-2 font-semibold hover:bg-blue-100 active:scale-[0.98] transition"
+            >
+              <Church className="w-3.5 h-3.5" />
+              ربط بكنيستي
+            </button>
+          )}
+
+          {u.id !== currentProfile.id &&
+            (!isServiceManager || u.role === 'servant') && (
+              <button
+                onClick={() => toggleActive(u)}
+                className={`inline-flex items-center gap-1 text-xs font-semibold rounded-xl px-3 py-2 transition active:scale-[0.98] ${
+                  u.is_active
+                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                    : 'bg-green-50 text-green-600 hover:bg-green-100'
+                }`}
+              >
+                {u.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
+                {u.is_active ? 'إيقاف' : 'تفعيل'}
+              </button>
+            )}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <div className="mt-3 space-y-5">
       {/* Pending approvals */}
@@ -65,21 +231,17 @@ export default function UsersManager({ users, currentProfile }: Props) {
           </h3>
           <ul className="space-y-2">
             {pending.map((u) => (
-              <li
-                key={u.id}
-                className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm p-4"
-              >
+              <li key={u.id} className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm p-4">
                 <div className="flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-                    <User className="w-5 h-5 text-amber-600" />
-                  </span>
+                  <Avatar url={u.avatar_url} />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold text-gray-800 truncate">
                       {u.full_name || '(بدون اسم)'}
                     </h4>
                     <p className="text-xs text-gray-500">
                       {ROLE_LABELS[u.role]}
-                      {u.services?.name && ` · خدمة ${u.services.name}`}
+                      {u.churches?.name && ` · ${u.churches.name}`}
+                      {u.services?.name && ` · ${u.services.name}`}
                       {!u.church_id && ' · غير مرتبط بكنيسة'}
                     </p>
                   </div>
@@ -106,89 +268,135 @@ export default function UsersManager({ users, currentProfile }: Props) {
         </section>
       )}
 
-      {/* All users */}
-      <ul className="space-y-2">
-        {others.map((u) => (
-          <li
-            key={u.id}
-            className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 ${
-              !u.is_active || u.approval_status === 'rejected' ? 'opacity-60' : ''
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                <User className="w-5 h-5 text-blue-600" />
-              </span>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-gray-800 truncate">
-                  {u.full_name || '(بدون اسم)'}
-                </h4>
-                <p className="text-xs text-gray-400">
-                  {ROLE_LABELS[u.role]}
-                  {u.services?.name && ` · خدمة ${u.services.name}`}
-                  {!u.church_id && ' · غير مرتبط بكنيسة'}
-                  {u.approval_status === 'rejected' && ' · مرفوض'}
-                </p>
+      {/* Users grouped by church → service */}
+      {groups.map((g) => (
+        <section key={g.church}>
+          {/* church header — hidden for service managers (single service view) */}
+          {!isServiceManager && (
+            <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+              <Church className="w-4 h-4 text-indigo-500" />
+              {g.church}
+            </h3>
+          )}
+          <div className="space-y-3">
+            {Array.from(g.sections.entries()).map(([serviceName, list]) => (
+              <div key={serviceName}>
+                <p className="text-xs font-semibold text-purple-600 mb-1.5 pr-1">{serviceName}</p>
+                <ul className="space-y-2">{list.map(renderUserCard)}</ul>
               </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {!users.length && (
+        <p className="text-center text-gray-400 text-sm py-10 bg-white rounded-2xl border border-gray-100">
+          لا يوجد مستخدمون
+        </p>
+      )}
+
+      {/* ---- Edit modal ---- */}
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800 text-sm">تعديل بيانات الخادم</h3>
+              <button
+                onClick={() => setEditing(null)}
+                className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-gray-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              {u.approval_status === 'rejected' && u.id !== currentProfile.id && (
-                <button
-                  onClick={() => setApproval(u, 'approved')}
-                  className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 rounded-xl px-3 py-2 font-semibold hover:bg-green-100 active:scale-[0.98] transition"
+            {/* avatar + name */}
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative">
+                <Avatar url={editing.avatar_url} className="w-20 h-20" iconCls="w-9 h-9" />
+                <ImageCropUpload
+                  storagePath={`avatars/${editing.id}`}
+                  round
+                  onUploaded={async (url) => {
+                    await saveAvatar(editing.id, url);
+                    setEditing({ ...editing, avatar_url: url });
+                  }}
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  قبول
-                </button>
-              )}
+                  <span className="absolute -bottom-1 -left-1 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md active:scale-[0.95] transition">
+                    <Camera className="w-4 h-4" />
+                  </span>
+                </ImageCropUpload>
+              </div>
+              <p className="font-bold text-gray-800 mt-2">{editing.full_name}</p>
+            </div>
 
-              {!u.church_id && currentProfile.church_id && !isServiceManager && (
-                <button
-                  onClick={() => attachToMyChurch(u)}
-                  className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 rounded-xl px-3 py-2 font-semibold hover:bg-blue-100 active:scale-[0.98] transition"
-                >
-                  <Church className="w-3.5 h-3.5" />
-                  ربط بكنيستي
-                </button>
-              )}
-
-              {u.id !== currentProfile.id && canAssignRoles && (
-                <select
-                  value={u.role}
-                  onChange={(e) => updateRole(u, e.target.value as AppRole)}
-                  className="text-xs rounded-xl border border-gray-200 px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  {assignableRoles.map((r) => (
-                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                  ))}
-                </select>
-              )}
-
-              {u.id !== currentProfile.id &&
-                // service_manager can only activate/deactivate servants of his service
-                (!isServiceManager || u.role === 'servant') && (
-                  <button
-                    onClick={() => toggleActive(u)}
-                    className={`inline-flex items-center gap-1 text-xs font-semibold rounded-xl px-3 py-2 transition active:scale-[0.98] ${
-                      u.is_active
-                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                        : 'bg-green-50 text-green-600 hover:bg-green-100'
-                    }`}
+            <div className="space-y-3">
+              {canEditChurch && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">الكنيسة</label>
+                  <select
+                    value={editChurch}
+                    onChange={(e) => {
+                      setEditChurch(e.target.value);
+                      setEditService('');
+                    }}
+                    className={inputCls}
                   >
-                    {u.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
-                    {u.is_active ? 'إيقاف' : 'تفعيل'}
-                  </button>
-                )}
+                    <option value="">بدون كنيسة</option>
+                    {churches.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {canEditService && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">الخدمة</label>
+                  <select
+                    value={editService}
+                    onChange={(e) => setEditService(e.target.value)}
+                    className={inputCls}
+                    disabled={canEditChurch && !editChurch}
+                  >
+                    <option value="">بدون خدمة</option>
+                    {editServiceOptions.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {canAssignRoles && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">الدور</label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value as AppRole)}
+                    className={inputCls}
+                  >
+                    {assignableRoles.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
-          </li>
-        ))}
-        {!users.length && (
-          <li className="text-center text-gray-400 text-sm py-10 bg-white rounded-2xl border border-gray-100">
-            لا يوجد مستخدمون
-          </li>
-        )}
-      </ul>
+
+            {editError && (
+              <p className="text-red-600 text-xs bg-red-50 rounded-xl p-2.5 mt-3">{editError}</p>
+            )}
+
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3 text-sm transition disabled:opacity-50 active:scale-[0.98] mt-4"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              حفظ التعديلات
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
