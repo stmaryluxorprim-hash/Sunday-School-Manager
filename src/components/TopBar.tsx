@@ -13,17 +13,28 @@ interface Props {
 }
 
 export default function TopBar({ profile, churchName, churchIcon, churchPicture, serviceName }: Props) {
-  const title = churchName || 'خدمات الكنيسة';
-  const subtitle = serviceName
-    ? `خدمة ${serviceName}`
-    : profile.role === 'app_owner'
-      ? 'إدارة المنصة'
-      : null;
+  const isOwner = profile.role === 'app_owner';
+
+  const title = isOwner ? 'إيبارشية الأقصر وتوابعها' : churchName || 'خدمات الكنيسة';
+  const subtitle = isOwner
+    ? 'إدارة المنصة'
+    : profile.role === 'church_manager'
+      ? 'إدارة الكنيسة'
+      : serviceName
+        ? `خدمة ${serviceName}`
+        : null;
 
   return (
     <header className="bg-gradient-to-l from-blue-800 to-blue-600 text-white sticky top-0 z-40 shadow-md pt-[env(safe-area-inset-top)]">
       <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-        {churchPicture ? (
+        {isOwner ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/icons/icon-192.png"
+            alt=""
+            className="w-10 h-10 rounded-xl object-cover shrink-0 border border-white/20 bg-white/10"
+          />
+        ) : churchPicture ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={churchPicture}
