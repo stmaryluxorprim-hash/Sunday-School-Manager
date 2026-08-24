@@ -4,6 +4,11 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Child } from '@/lib/types';
 import ChildActions from '@/components/ChildActions';
+import ChildQrCode from '@/components/ChildQrCode';
+import {
+  User, Star, CalendarCheck, Pencil, Phone, MapPin, Cake, Hash,
+  ClipboardList, StickyNote, History,
+} from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,42 +47,54 @@ export default async function ChildDetailPage({ params }: { params: { id: string
     .order('attended_on', { ascending: false })
     .limit(10);
 
-  const info: { label: string; value: string; dir?: string }[] = [
-    { label: 'الكود', value: c.child_code, dir: 'ltr' },
-    { label: 'تاريخ الميلاد', value: c.date_of_birth ?? '—', dir: 'ltr' },
-    { label: 'العمر', value: calcAge(c.date_of_birth) },
-    { label: 'الهاتف', value: c.phone_number ?? '—', dir: 'ltr' },
-    { label: 'العنوان', value: c.address ?? '—' },
-    { label: 'الخدمة', value: c.services?.name ?? '—' },
+  const info = [
+    { icon: Hash, label: 'الكود', value: c.child_code, dir: 'ltr' as const },
+    { icon: Cake, label: 'تاريخ الميلاد', value: c.date_of_birth ?? '—', dir: 'ltr' as const },
+    { icon: Cake, label: 'العمر', value: calcAge(c.date_of_birth), dir: undefined },
+    { icon: Phone, label: 'الهاتف', value: c.phone_number ?? '—', dir: 'ltr' as const },
+    { icon: MapPin, label: 'العنوان', value: c.address ?? '—', dir: undefined },
+    { icon: ClipboardList, label: 'الخدمة', value: c.services?.name ?? '—', dir: undefined },
   ];
 
   return (
-    <div className="space-y-4 mt-4 max-w-2xl mx-auto">
+    <div className="space-y-3 mt-3">
       {/* Profile header */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+      <section id="child-profile" className="bg-gradient-to-l from-blue-600 to-indigo-600 rounded-2xl shadow-sm p-6 text-center text-white">
         {c.picture_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.picture_url} alt={c.name}
-            className="w-24 h-24 rounded-full object-cover border-4 border-blue-100 mx-auto mb-3" />
+            className="w-24 h-24 rounded-full object-cover border-4 border-white/30 mx-auto mb-3" />
         ) : (
-          <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center text-4xl mx-auto mb-3">👧</div>
-        )}
-        <h2 className="text-2xl font-bold text-gray-800">{c.name}</h2>
-        <div className="flex justify-center gap-6 mt-3">
-          <div>
-            <div className="text-2xl font-bold text-amber-600">⭐ {c.points}</div>
-            <div className="text-xs text-gray-400">النقاط</div>
+          <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+            <User className="w-12 h-12 text-white" />
           </div>
-          <div>
-            <div className="text-2xl font-bold text-green-600">✅ {c.attendance_count}</div>
-            <div className="text-xs text-gray-400">مرات الحضور</div>
+        )}
+        <h2 className="text-2xl font-bold">{c.name}</h2>
+        <div className="flex justify-center gap-4 mt-4">
+          <div className="bg-white/15 rounded-xl px-4 py-2 min-w-[90px]">
+            <div className="flex items-center justify-center gap-1 text-xl font-bold">
+              <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
+              {c.points}
+            </div>
+            <div className="text-xs text-blue-100 mt-0.5">النقاط</div>
+          </div>
+          <div className="bg-white/15 rounded-xl px-4 py-2 min-w-[90px]">
+            <div className="flex items-center justify-center gap-1 text-xl font-bold">
+              <CalendarCheck className="w-5 h-5 text-green-300" />
+              {c.attendance_count}
+            </div>
+            <div className="text-xs text-blue-100 mt-0.5">مرات الحضور</div>
           </div>
         </div>
         <Link href={`/dashboard/children/${c.id}/edit`}
-          className="inline-block mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg px-4 py-2 text-sm font-semibold transition">
-          ✏️ تعديل البيانات
+          className="inline-flex items-center gap-2 mt-4 bg-white/20 hover:bg-white/30 active:scale-[0.98] text-white rounded-xl px-4 py-2 text-sm font-semibold transition">
+          <Pencil className="w-4 h-4" />
+          تعديل البيانات
         </Link>
       </section>
+
+      {/* QR code */}
+      <ChildQrCode code={c.child_code} name={c.name} />
 
       {/* Actions: attendance + points */}
       <ChildActions
@@ -88,27 +105,35 @@ export default async function ChildDetailPage({ params }: { params: { id: string
       />
 
       {/* Info */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="font-bold text-gray-800 mb-4">البيانات</h3>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+      <section id="child-info" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-gray-800 mb-4 text-sm">البيانات</h3>
+        <ul className="space-y-3">
           {info.map((i) => (
-            <div key={i.label}>
-              <dt className="text-gray-400">{i.label}</dt>
-              <dd className="font-semibold text-gray-700" dir={i.dir}>{i.value}</dd>
-            </div>
+            <li key={i.label} className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <i.icon className="w-4 h-4 text-gray-500" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-xs text-gray-400">{i.label}</div>
+                <div className="text-sm font-semibold text-gray-700 truncate" dir={i.dir}>{i.value}</div>
+              </div>
+            </li>
           ))}
-        </dl>
+        </ul>
         {c.notes && (
-          <div className="mt-4 bg-amber-50 rounded-lg p-3 text-sm">
-            <span className="font-semibold text-amber-800">📝 ملاحظات: </span>
-            <span className="text-amber-700">{c.notes}</span>
+          <div className="mt-4 bg-amber-50 rounded-xl p-3 text-sm flex gap-2">
+            <StickyNote className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <span className="text-amber-800">{c.notes}</span>
           </div>
         )}
       </section>
 
       {/* Recent attendance */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="font-bold text-gray-800 mb-3">آخر مرات الحضور</h3>
+      <section id="recent-attendance" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2">
+          <History className="w-4 h-4 text-gray-400" />
+          آخر مرات الحضور
+        </h3>
         {!recentAttendance?.length ? (
           <p className="text-gray-400 text-sm">لا يوجد حضور مسجل</p>
         ) : (
