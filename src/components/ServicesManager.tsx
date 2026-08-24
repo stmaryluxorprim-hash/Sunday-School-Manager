@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Service } from '@/lib/types';
-import { Plus, ClipboardList, Power, PowerOff, Loader2 } from 'lucide-react';
+import { Plus, Power, PowerOff, Loader2 } from 'lucide-react';
+import { AppIcon, SERVICE_ICONS } from '@/lib/icons';
+import SignupQr from '@/components/SignupQr';
 
 interface Props {
   churchId: string;
@@ -19,6 +21,7 @@ export default function ServicesManager({ churchId, services, canManage }: Props
   const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState('clipboard-list');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,11 +34,13 @@ export default function ServicesManager({ churchId, services, canManage }: Props
       church_id: churchId,
       name: name.trim(),
       description: description.trim() || null,
+      icon,
     });
     if (error) setError(error.message);
     else {
       setName('');
       setDescription('');
+      setIcon('clipboard-list');
       router.refresh();
     }
     setLoading(false);
@@ -71,6 +76,28 @@ export default function ServicesManager({ churchId, services, canManage }: Props
             placeholder="وصف (اختياري)"
             className={inputCls}
           />
+
+          {/* Icon picker */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-2">أيقونة الخدمة</p>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_ICONS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setIcon(key)}
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition active:scale-[0.95] ${
+                    icon === key
+                      ? 'bg-purple-600 text-white ring-2 ring-purple-300'
+                      : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  <AppIcon name={key} className="w-5 h-5" />
+                </button>
+              ))}
+            </div>
+          </div>
+
           {error && <p className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</p>}
           <button
             disabled={loading}
@@ -91,12 +118,20 @@ export default function ServicesManager({ churchId, services, canManage }: Props
             }`}
           >
             <span className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
-              <ClipboardList className="w-5 h-5 text-purple-600" />
+              <AppIcon name={s.icon} className="w-5 h-5 text-purple-600" />
             </span>
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-bold text-gray-800 truncate">{s.name}</h4>
               {s.description && <p className="text-xs text-gray-400 truncate">{s.description}</p>}
             </div>
+            {canManage && s.is_active && (
+              <SignupQr
+                churchId={churchId}
+                serviceId={s.id}
+                title={s.name}
+                subtitle="رابط تسجيل الخدام للخدمة دي"
+              />
+            )}
             {canManage && (
               <button
                 onClick={() => toggleActive(s)}
