@@ -1,6 +1,7 @@
 import { getProfile } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import Nav from '@/components/Nav';
+import TopBar from '@/components/TopBar';
+import BottomNav from '@/components/BottomNav';
 
 export default async function DashboardLayout({
   children,
@@ -12,8 +13,9 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Nav profile={profile} />
-      <main className="max-w-6xl mx-auto p-4 pb-24 md:pb-8">{children}</main>
+      <TopBar profile={profile} />
+      <main className="max-w-lg mx-auto px-4 pb-28 pt-2">{children}</main>
+      <BottomNav />
     </div>
   );
 }
