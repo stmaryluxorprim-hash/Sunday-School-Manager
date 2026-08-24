@@ -1,17 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Church, UserPlus, Loader2, CheckCircle2 } from 'lucide-react';
+import { Church as ChurchIcon, UserPlus, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { AppIcon } from '@/lib/icons';
+import type { Church, Service } from '@/lib/types';
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams();
+  const churchId = searchParams.get('church');
+  const serviceId = searchParams.get('service');
+
+  const [church, setChurch] = useState<Church | null>(null);
+  const [service, setService] = useState<Service | null>(null);
+  const [linkChecked, setLinkChecked] = useState(false);
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Load church & service info from the invite link
+  useEffect(() => {
+    async function load() {
+      if (!churchId) {
+        setLinkChecked(true);
+        return;
+      }
+      const supabase = createClient();
+      const { data: c } = await supabase
+        .from('churches')
+        .select('*')
+        .eq('id', churchId)
+        .eq('is_active', true)
+        .maybeSingle();
+      setChurch((c as Church) ?? null);
+
+      if (c && serviceId) {
+        const { data: s } = await supabase
+          .from('services')
+          .select('*')
+          .eq('id', serviceId)
+          .eq('church_id', churchId)
+          .eq('is_active', true)
+          .maybeSingle();
+        setService((s as Service) ?? null);
+      }
+      setLinkChecked(true);
+    }
+    load();
+  }, [churchId, serviceId]);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +64,13 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: {
+          full_name: fullName,
+          church_id: church?.id ?? null,
+          service_id: service?.id ?? null,
+        },
+      },
     });
 
     if (error) {
@@ -41,10 +89,15 @@ export default function SignupPage() {
             <CheckCircle2 className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="text-xl font-bold text-gray-800 mb-2">تم إنشاء الحساب</h1>
-          <p className="text-gray-600 mb-6">
-            إذا كان تأكيد البريد مفعلاً، تحقق من بريدك الإلكتروني. ثم انتظر أن يقوم مدير الكنيسة بتفعيل حسابك وتحديد دورك.
+          <p className="text-gray-600 text-sm mb-2">
+            {church
+              ? `طلبك مسجل في ${church.name}${service ? ` — خدمة ${service.name}` : ''}.`
+              : 'تم تسجيل طلبك.'}
           </p>
-          <Link href="/login" className="text-blue-700 font-semibold hover:underline">
+          <p className="text-gray-500 text-sm mb-6">
+            حسابك في انتظار موافقة مدير الكنيسة. بعد الموافقة تقدر تسجل الدخول وتبدأ الخدمة.
+          </p>
+          <Link href="/login" className="text-blue-700 font-semibold hover:underline text-sm">
             الذهاب لتسجيل الدخول
           </Link>
         </section>
@@ -52,15 +105,56 @@ export default function SignupPage() {
     );
   }
 
+  const inputCls =
+    'w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition';
+
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-900 to-blue-600">
       <section className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        <header className="text-center mb-8">
+        <header className="text-center mb-6">
           <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
-            <Church className="w-8 h-8 text-blue-600" />
+            {church ? (
+              <AppIcon name={church.icon} className="w-8 h-8 text-blue-600" fallback="church" />
+            ) : (
+              <ChurchIcon className="w-8 h-8 text-blue-600" />
+            )}
           </div>
           <h1 className="text-2xl font-bold text-gray-800">إنشاء حساب جديد</h1>
         </header>
+
+        {/* Invite context card */}
+        {church && (
+          <div id="invite-context" className="bg-blue-50 rounded-2xl p-4 mb-5 space-y-2">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0">
+                <AppIcon name={church.icon} className="w-4 h-4 text-blue-600" fallback="church" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs text-blue-500">الكنيسة</p>
+                <p className="text-sm font-bold text-blue-900 truncate">{church.name}</p>
+              </div>
+            </div>
+            {service && (
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0">
+                  <AppIcon name={service.icon} className="w-4 h-4 text-purple-600" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-blue-500">الخدمة</p>
+                  <p className="text-sm font-bold text-blue-900 truncate">{service.name}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invalid link warning */}
+        {linkChecked && churchId && !church && (
+          <div className="bg-amber-50 rounded-2xl p-4 mb-5 flex gap-2 text-sm text-amber-800">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+            رابط الدعوة غير صالح — هيتم إنشاء الحساب بدون كنيسة وهيحتاج ربط يدوي.
+          </div>
+        )}
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
@@ -73,7 +167,7 @@ export default function SignupPage() {
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              className={inputCls}
             />
           </div>
 
@@ -88,7 +182,7 @@ export default function SignupPage() {
               dir="ltr"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              className={inputCls}
             />
           </div>
 
@@ -104,7 +198,7 @@ export default function SignupPage() {
               dir="ltr"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              className={inputCls}
             />
           </div>
 
@@ -128,5 +222,19 @@ export default function SignupPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-600">
+          <Loader2 className="w-8 h-8 text-white animate-spin" />
+        </main>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }
