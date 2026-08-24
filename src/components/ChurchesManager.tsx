@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Church } from '@/lib/types';
-import { Plus, Power, PowerOff, Loader2, Pencil, X, Check, Camera } from 'lucide-react';
+import { Plus, Power, PowerOff, Loader2, Pencil, X, Check, Camera, Trash2 } from 'lucide-react';
 import { AppIcon, CHURCH_ICONS } from '@/lib/icons';
 import SignupQr from '@/components/SignupQr';
 import ImageCropUpload from '@/components/ImageCropUpload';
@@ -92,6 +92,24 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
   async function savePicture(churchId: string, url: string) {
     const supabase = createClient();
     await supabase.from('churches').update({ picture_url: url }).eq('id', churchId);
+    router.refresh();
+  }
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function deleteChurch(c: Church) {
+    const ok = window.confirm(
+      `هل أنت متأكد من حذف كنيسة "${c.name}" نهائيًا؟ سيتم حذف كل الخدمات والبيانات المرتبطة بها.`
+    );
+    if (!ok) return;
+    setDeletingId(c.id);
+    const supabase = createClient();
+    const { error } = await supabase.from('churches').delete().eq('id', c.id);
+    setDeletingId(null);
+    if (error) {
+      window.alert('تعذر حذف الكنيسة: ' + error.message);
+      return;
+    }
     router.refresh();
   }
 
@@ -202,6 +220,18 @@ export default function ChurchesManager({ churches }: { churches: Church[] }) {
             >
               {c.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
               {c.is_active ? 'إيقاف' : 'تفعيل'}
+            </button>
+            <button
+              onClick={() => deleteChurch(c)}
+              disabled={deletingId === c.id}
+              className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 active:scale-[0.95] transition shrink-0 disabled:opacity-50"
+              aria-label="حذف"
+            >
+              {deletingId === c.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
             </button>
           </li>
         ))}
