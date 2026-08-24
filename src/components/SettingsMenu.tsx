@@ -4,17 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
-  User,
   ClipboardList,
   UsersRound,
   Church,
   CheckCircle2,
   LogOut,
   ChevronLeft,
-  ShieldCheck,
 } from 'lucide-react';
 import type { Profile } from '@/lib/types';
-import { ROLE_LABELS } from '@/lib/types';
+import MyProfileCard from '@/components/MyProfileCard';
 
 export default function SettingsMenu({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -72,19 +70,8 @@ export default function SettingsMenu({ profile }: { profile: Profile }) {
 
   return (
     <div className="space-y-4">
-      {/* Profile card */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
-        <span className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center shrink-0">
-          <User className="w-7 h-7 text-white" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-gray-800 truncate">{profile.full_name}</p>
-          <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-            {ROLE_LABELS[profile.role]}
-          </p>
-        </div>
-      </section>
+      {/* Profile card (self editable) */}
+      <MyProfileCard profile={profile} />
 
       {/* Menu */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
