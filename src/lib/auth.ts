@@ -32,6 +32,28 @@ export async function requireRole(minRole: AppRole = 'servant'): Promise<Profile
   return p;
 }
 
+export type ProfileWithContext = Profile & {
+  churches: { name: string; icon: string } | null;
+  services: { name: string; icon: string } | null;
+};
+
+/** Profile + church & service names (embeds disambiguated by FK). */
+export async function getProfileWithContext(): Promise<ProfileWithContext | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*, churches!church_id(name, icon), services!service_id(name, icon)')
+    .eq('id', user.id)
+    .single();
+
+  return (profile as ProfileWithContext) ?? null;
+}
+
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient();
   const {

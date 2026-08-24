@@ -14,7 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import type { Profile } from '@/lib/types';
-import { ROLE_LABELS, hasMinRole } from '@/lib/types';
+import { ROLE_LABELS } from '@/lib/types';
 
 export default function SettingsMenu({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -36,28 +36,37 @@ export default function SettingsMenu({ profile }: { profile: Profile }) {
       show: true,
     },
     {
-      href: '/dashboard/settings/services',
-      label: 'إدارة الخدمات',
-      desc: 'إضافة وتعديل خدمات الكنيسة',
-      Icon: ClipboardList,
-      color: 'bg-violet-50 text-violet-600',
-      show: hasMinRole(profile.role, 'service_manager'),
-    },
-    {
-      href: '/dashboard/settings/users',
-      label: 'إدارة المستخدمين',
-      desc: 'الأدوار وصلاحيات الخدام',
-      Icon: UsersRound,
-      color: 'bg-blue-50 text-blue-600',
-      show: hasMinRole(profile.role, 'church_manager'),
-    },
-    {
       href: '/dashboard/settings/churches',
       label: 'إدارة الكنائس',
       desc: 'إدارة المستأجرين على المنصة',
       Icon: Church,
       color: 'bg-amber-50 text-amber-600',
+      // owner only
       show: profile.role === 'app_owner',
+    },
+    {
+      href: '/dashboard/settings/services',
+      label: 'إدارة الخدمات',
+      desc: 'إضافة وتعديل خدمات الكنيسة',
+      Icon: ClipboardList,
+      color: 'bg-violet-50 text-violet-600',
+      // owner + church_manager (service_manager does NOT manage services)
+      show: profile.role === 'app_owner' || profile.role === 'church_manager',
+    },
+    {
+      href: '/dashboard/settings/users',
+      label: 'إدارة المستخدمين',
+      desc:
+        profile.role === 'service_manager'
+          ? 'خدام خدمتك وطلبات الانضمام'
+          : 'الأدوار وصلاحيات الخدام',
+      Icon: UsersRound,
+      color: 'bg-blue-50 text-blue-600',
+      // owner + church_manager (church scope) + service_manager (service scope)
+      show:
+        profile.role === 'app_owner' ||
+        profile.role === 'church_manager' ||
+        profile.role === 'service_manager',
     },
   ].filter((i) => i.show);
 

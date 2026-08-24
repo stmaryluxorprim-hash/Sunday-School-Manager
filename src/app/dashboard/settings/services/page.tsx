@@ -6,7 +6,8 @@ import type { Service } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 export default async function ServicesPage() {
-  const profile = await requireRole('service_manager');
+  // Services management is for church_manager and app_owner only
+  const profile = await requireRole('church_manager');
   const supabase = await createClient();
 
   if (!profile.church_id) {

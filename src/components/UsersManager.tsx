@@ -16,8 +16,12 @@ interface Props {
 export default function UsersManager({ users, currentProfile }: Props) {
   const router = useRouter();
   const isOwner = currentProfile.role === 'app_owner';
+  const isChurchManager = currentProfile.role === 'church_manager';
+  const isServiceManager = currentProfile.role === 'service_manager';
 
-  // church_manager can assign up to church_manager; app_owner can assign anything
+  // Role assignment: owner assigns anything; church_manager up to church_manager;
+  // service_manager cannot change roles at all.
+  const canAssignRoles = isOwner || isChurchManager;
   const assignableRoles: AppRole[] = isOwner
     ? ['app_owner', 'church_manager', 'service_manager', 'servant']
     : ['church_manager', 'service_manager', 'servant'];
@@ -139,7 +143,7 @@ export default function UsersManager({ users, currentProfile }: Props) {
                 </button>
               )}
 
-              {!u.church_id && currentProfile.church_id && (
+              {!u.church_id && currentProfile.church_id && !isServiceManager && (
                 <button
                   onClick={() => attachToMyChurch(u)}
                   className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 rounded-xl px-3 py-2 font-semibold hover:bg-blue-100 active:scale-[0.98] transition"
@@ -149,17 +153,21 @@ export default function UsersManager({ users, currentProfile }: Props) {
                 </button>
               )}
 
-              {u.id !== currentProfile.id && (
-                <>
-                  <select
-                    value={u.role}
-                    onChange={(e) => updateRole(u, e.target.value as AppRole)}
-                    className="text-xs rounded-xl border border-gray-200 px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    {assignableRoles.map((r) => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
+              {u.id !== currentProfile.id && canAssignRoles && (
+                <select
+                  value={u.role}
+                  onChange={(e) => updateRole(u, e.target.value as AppRole)}
+                  className="text-xs rounded-xl border border-gray-200 px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  {assignableRoles.map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                </select>
+              )}
+
+              {u.id !== currentProfile.id &&
+                // service_manager can only activate/deactivate servants of his service
+                (!isServiceManager || u.role === 'servant') && (
                   <button
                     onClick={() => toggleActive(u)}
                     className={`inline-flex items-center gap-1 text-xs font-semibold rounded-xl px-3 py-2 transition active:scale-[0.98] ${
@@ -171,8 +179,7 @@ export default function UsersManager({ users, currentProfile }: Props) {
                     {u.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                     {u.is_active ? 'إيقاف' : 'تفعيل'}
                   </button>
-                </>
-              )}
+                )}
             </div>
           </li>
         ))}
