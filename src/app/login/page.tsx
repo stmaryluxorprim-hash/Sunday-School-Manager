@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { Church, LogIn, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,7 +34,9 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-900 to-blue-600">
       <section className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <header className="text-center mb-8">
-          <div className="text-5xl mb-3">⛪</div>
+          <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
+            <Church className="w-8 h-8 text-blue-600" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-800">منصة إدارة خدمات الكنيسة</h1>
           <p className="text-gray-500 mt-1">تسجيل الدخول</p>
         </header>
@@ -50,7 +53,7 @@ export default function LoginPage() {
               dir="ltr"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
           </div>
 
@@ -65,19 +68,20 @@ export default function LoginPage() {
               dir="ltr"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
           </div>
 
           {error && (
-            <p className="text-red-600 text-sm bg-red-50 rounded-lg p-3">{error}</p>
+            <p className="text-red-600 text-sm bg-red-50 rounded-xl p-3">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg py-3 transition disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold rounded-xl py-3.5 text-sm transition disabled:opacity-50"
           >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
             {loading ? 'جاري الدخول...' : 'دخول'}
           </button>
         </form>
